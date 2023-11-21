@@ -1,0 +1,13 @@
+Source: countfiles
+Section: utils
+Priority: medium
+Maintainer: Makarenko Vladyslav <mk.vlad2003@gmail.com>
+Standards-Version: 3.9.6
+Build-Status: Unknown
+
+Package: countfiles
+Architecture: all
+Depends: ${misc:Depends}, bash
+Description: Counts the number of files in the /etc directory
+ This script counts the number of files in the /etc directory, excluding
+ directories and links.

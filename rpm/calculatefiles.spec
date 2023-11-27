@@ -18,7 +18,7 @@ cd labsOC/
 
 %install
 mkdir -p $RPM_BUILD_ROOT/%{_bindir}
-install -m 0755 $RPM_BUILD_DIR/labsOC/count_files.sh $RPM_BUILD_ROOT/%{_bindir}/%{name}
+install -m 0755 $RPM_BUILD_DIR/labsOC/count_files.sh $RPM_BUILD_ROOT/%{_bindir}/%{name}.sh
 
 %files
-%{_bindir}/%{name}
+/usr/bin/count_files.sh

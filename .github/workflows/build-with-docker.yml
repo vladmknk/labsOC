@@ -50,68 +50,39 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v3
 
+            - name: Build and run Jenkins in Docker
+              run: |
+                  docker build -t lab-jenkins .
+                  docker run -d -v $GITHUB_WORKSPACE:/workspace -p 8080:8080 --name lab-jenkins lab-jenkins
+
             - name: Install DEB build tools
+              run: docker exec -u root lab-jenkins apt-get install -y debhelper build-essential
+
+            - name: Create debian files
               run: |
-                  sudo apt-get install debhelper build-essential -y
-
-            - name: Create Changelog File
-              run: |
-                  echo "countfiles (0.1-1) unstable; urgency=medium" > debian/changelog
-                  echo "" >> debian/changelog
-                  echo "  * Initial release." >> debian/changelog
-                  echo "" >> debian/changelog
-                  echo "-- Makarenko Vladyslav <mk.vlad2003@gmail.com>  Wed, 21 Nov 2023 10:17:00 EET" >> debian/changelog
-
-            - name: Create Compat File
-              run: echo "10" > debian/compat
-
-            - name: Create Control File
-              run: |
-                  echo "Source: countfiles" > debian/control
-                  echo "Section: utils" >> debian/control
-                  echo "Priority: medium" >> debian/control
-                  echo "Maintainer: Makarenko Vladyslav <mk.vlad2003@gmail.com>" >> debian/control
-                  echo "Standards-Version: 3.9.6" >> debian/control
-                  echo "Build-Status: Unknown" >> debian/control
-                  echo "" >> debian/control
-                  echo "Package: countfiles" >> debian/control
-                  echo "Architecture: all" >> debian/control
-                  echo "Depends: \${misc:Depends}, bash" >> debian/control
-                  echo "Description: Counts the number of files in the /etc directory" >> debian/control
-                  echo " This script counts the number of files in the /etc directory, excluding" >> debian/control
-                  echo " directories and links." >> debian/control
-
-            - name: Create Install File
-              run: echo "count_files.sh usr/bin" > debian/install
-
-            - name: Create Install File
-              run: |
-                  echo "#!/usr/bin/make -f" > debian/rules
-                  echo "" >> debian/rules
-                  echo "%:" >> debian/rules
-                  echo "\\tdh \$@" >> debian/rules
-                  sed 's/\\t/\t/g' debian/rules > debian/rules.new
-                  mv debian/rules.new debian/rules
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /workspace && chmod +x create-debian-files.sh"
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /workspace && ./create-debian-files.sh"
 
             - name: Check files av
               run: |
-                  cd $GITHUB_WORKSPACE/debian
-                  ls
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /workspace/debian && ls"
 
             - name: Build DEB package
               run: |
-                  cd $GITHUB_WORKSPACE
-                  sudo dpkg-buildpackage -b --no-sign
-                  cd ..
-                  sudo dpkg -i countfiles_0.1-1_all.deb
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /workspace && dpkg-buildpackage -b --no-sign"
+                  docker exec -u root lab-jenkins /bin/bash -c "ls"
+                  docker exec -u root lab-jenkins /bin/bash -c "dpkg -i countfiles_0.1-1_all.deb"
 
             - name: Execute script count_files
               run: |
-                  cd ~/../../bin
-                  sudo ./count_files.sh
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /bin && ./count_files.sh"
+
+            - name: Copy DEB package to GitHub Actions runner
+              run: |
+                  docker cp lab-jenkins:countfiles_0.1-1_all.deb $GITHUB_WORKSPACE/
 
             - name: Upload DEB package to artifacts
               uses: actions/upload-artifact@v3
               with:
                   name: deb-package
-                  path: ~/work/labsOC/labsOC/countfiles_0.1-1_all.deb
+                  path: ~/work/testrepository/testrepository/countfiles_0.1-1_all.deb

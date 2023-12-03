@@ -1,0 +1,117 @@
+name: Build RPM and DEB Packages
+
+on:
+    # Trigger the workflow on push events to the main branch
+    push:
+        branches: [main]
+
+jobs:
+    build-rpm:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Build and run Jenkins in Docker
+              run: |
+                  docker build -t lab-jenkins .
+                  docker run -d -v $GITHUB_WORKSPACE:/workspace -p 8080:8080 --name lab-jenkins lab-jenkins
+
+            - name: Install RPM build tools
+              run: docker exec -u root lab-jenkins apt-get install -y rpm
+
+            - name: Build RPM package
+              run: |
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /workspace/rpm && rpmbuild -ba calculatefiles.spec"
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /root/rpmbuild/RPMS/noarch/ && rpm -i --nodeps count_files-1.0-1.noarch.rpm"
+
+            - name: Execute script count_files
+              run: docker exec -u root lab-jenkins /bin/bash -c "cd /bin && ./count_files.sh"
+
+            - name: Copy RPM package to GitHub Actions runner
+              run: |
+                  docker exec -u root lab-jenkins /bin/bash -c "cd /root/rpmbuild/RPMS/noarch/ && ls"
+                  docker cp lab-jenkins:/root/rpmbuild/RPMS/noarch/count_files-1.0-1.noarch.rpm $GITHUB_WORKSPACE/
+
+            - name: Upload RPM package to artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: rpm-package
+                  path: ~/work/testrepository/testrepository/count_files-1.0-1.noarch.rpm
+
+            - name: Stop and remove Jenkins container
+              run: docker stop lab-jenkins && docker rm lab-jenkins
+
+    build-deb:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Install DEB build tools
+              run: |
+                  sudo apt-get install debhelper build-essential -y
+
+            - name: Create Changelog File
+              run: |
+                  echo "countfiles (0.1-1) unstable; urgency=medium" > debian/changelog
+                  echo "" >> debian/changelog
+                  echo "  * Initial release." >> debian/changelog
+                  echo "" >> debian/changelog
+                  echo "-- Makarenko Vladyslav <mk.vlad2003@gmail.com>  Wed, 21 Nov 2023 10:17:00 EET" >> debian/changelog
+
+            - name: Create Compat File
+              run: echo "10" > debian/compat
+
+            - name: Create Control File
+              run: |
+                  echo "Source: countfiles" > debian/control
+                  echo "Section: utils" >> debian/control
+                  echo "Priority: medium" >> debian/control
+                  echo "Maintainer: Makarenko Vladyslav <mk.vlad2003@gmail.com>" >> debian/control
+                  echo "Standards-Version: 3.9.6" >> debian/control
+                  echo "Build-Status: Unknown" >> debian/control
+                  echo "" >> debian/control
+                  echo "Package: countfiles" >> debian/control
+                  echo "Architecture: all" >> debian/control
+                  echo "Depends: \${misc:Depends}, bash" >> debian/control
+                  echo "Description: Counts the number of files in the /etc directory" >> debian/control
+                  echo " This script counts the number of files in the /etc directory, excluding" >> debian/control
+                  echo " directories and links." >> debian/control
+
+            - name: Create Install File
+              run: echo "count_files.sh usr/bin" > debian/install
+
+            - name: Create Install File
+              run: |
+                  echo "#!/usr/bin/make -f" > debian/rules
+                  echo "" >> debian/rules
+                  echo "%:" >> debian/rules
+                  echo "\\tdh \$@" >> debian/rules
+                  sed 's/\\t/\t/g' debian/rules > debian/rules.new
+                  mv debian/rules.new debian/rules
+
+            - name: Check files av
+              run: |
+                  cd $GITHUB_WORKSPACE/debian
+                  ls
+
+            - name: Build DEB package
+              run: |
+                  cd $GITHUB_WORKSPACE
+                  sudo dpkg-buildpackage -b --no-sign
+                  cd ..
+                  sudo dpkg -i countfiles_0.1-1_all.deb
+
+            - name: Execute script count_files
+              run: |
+                  cd ~/../../bin
+                  sudo ./count_files.sh
+
+            - name: Upload DEB package to artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: deb-package
+                  path: ~/work/testrepository/testrepository/countfiles_0.1-1_all.deb

@@ -38,7 +38,7 @@ jobs:
               uses: actions/upload-artifact@v3
               with:
                   name: rpm-package
-                  path: ~/work/testrepository/testrepository/count_files-1.0-1.noarch.rpm
+                  path: ~/work/labsOC/labsOC/count_files-1.0-1.noarch.rpm
 
             - name: Stop and remove Jenkins container
               run: docker stop lab-jenkins && docker rm lab-jenkins
@@ -114,4 +114,4 @@ jobs:
               uses: actions/upload-artifact@v3
               with:
                   name: deb-package
-                  path: ~/work/testrepository/testrepository/countfiles_0.1-1_all.deb
+                  path: ~/work/labsOC/labsOC/countfiles_0.1-1_all.deb
